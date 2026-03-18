@@ -590,16 +590,13 @@ def update_pay_adoption(facs, yr):
     fig.add_trace(go.Scatter(x=yearly.index, y=yearly['ezpass_pct'],
                              name='EZPass %', mode='lines+markers',
                              line=dict(color=BLUE1, width=2, dash='dash'),
-                             marker=dict(size=6), yaxis='y2'))
-    fig.add_vrect(x0=2020, x1=2021, fillcolor='rgba(248,81,73,0.1)',
-                  line_width=0, annotation_text='COVID',
-                  annotation_font_color=RED, annotation_position='top left')
+                             marker=dict(size=6)))
+    fig.add_shape(type='rect', x0=2020, x1=2021, y0=0, y1=1, yref='paper',
+                  fillcolor='rgba(248,81,73,0.1)', line_width=0)
+    fig.add_annotation(x=2020.5, y=0.95, yref='paper', text='COVID',
+                       showarrow=False, font=dict(color=RED, size=10))
     fig.update_layout(**PLOTLY_TEMPLATE['layout'],
-                      yaxis=dict(title='Cash Share (%)', color=GREEN,
-                                 gridcolor=BORDER, tickfont=dict(color=GREEN)),
-                      yaxis2=dict(title='EZPass Share (%)', overlaying='y',
-                                  side='right', color=BLUE1,
-                                  tickfont=dict(color=BLUE1)))
+                      yaxis_title='Share (%)')
     return fig
 
 @app.callback(Output('pay-volume','figure'),
