@@ -193,6 +193,29 @@ app.layout = html.Div(
                                          html.H3('Monthly Volume Trend: 2023 vs 2024 vs 2025',
                                                  style={'color': TEXT_PRIMARY, 'fontSize': '14px', 'margin': '0 0 12px'}),
                                          dcc.Graph(id='cong-trend', style={'height': '280px'})])])]),
+                         dcc.Tab(label='Payment Methods', value='tab-payment',
+                                 style={'color': TEXT_MUTED, 'backgroundColor': CARD_BG, 'border': 'none'},
+                                 selected_style={'color': TEXT_PRIMARY, 'backgroundColor': DARK_BG,
+                                                 'borderTop': '2px solid #BC8CFF', 'border': 'none'},
+                                 children=[html.Div(style={'paddingTop': '16px'}, children=[
+                                     html.Div(id='pay-kpi-row', style={'display': 'flex', 'flexWrap': 'wrap'}),
+                                     html.Div(style=CARD, children=[
+                                         html.H3('Payment Method Mix by Year',
+                                                 style={'color': TEXT_PRIMARY, 'fontSize': '14px', 'margin': '0 0 12px'}),
+                                         dcc.Graph(id='pay-trend', style={'height': '300px'})]),
+                                     html.Div(style={'display': 'flex', 'gap': '16px'}, children=[
+                                         html.Div(style={**CARD, 'flex': '1'}, children=[
+                                             html.H3('Payment Method by Facility',
+                                                     style={'color': TEXT_PRIMARY, 'fontSize': '14px', 'margin': '0 0 12px'}),
+                                             dcc.Graph(id='pay-facility', style={'height': '300px'})]),
+                                         html.Div(style={**CARD, 'flex': '1'}, children=[
+                                             html.H3('Cash vs EZPass Adoption Trend',
+                                                     style={'color': TEXT_PRIMARY, 'fontSize': '14px', 'margin': '0 0 12px'}),
+                                             dcc.Graph(id='pay-adoption', style={'height': '300px'})])]),
+                                     html.Div(style=CARD, children=[
+                                         html.H3('Annual Transaction Volume by Payment Method',
+                                                 style={'color': TEXT_PRIMARY, 'fontSize': '14px', 'margin': '0 0 12px'}),
+                                         dcc.Graph(id='pay-volume', style={'height': '280px'})])])]),
                          dcc.Tab(label='Forecast 2025-2027', value='tab-forecast',
                                  style={'color': TEXT_MUTED, 'backgroundColor': CARD_BG, 'border': 'none'},
                                  selected_style={'color': TEXT_PRIMARY, 'backgroundColor': DARK_BG,
@@ -482,6 +505,117 @@ def update_forecast_monthly(_):
                                  mode='lines+markers', line=dict(color=color, width=2),
                                  marker=dict(size=5)))
     fig.update_layout(**PLOTLY_TEMPLATE['layout'], yaxis_title='Avg Daily (Thousands)')
+    return fig
+
+
+# ── Payment Methods Callbacks ──
+@app.callback(Output('pay-kpi-row','children'),
+              [Input('global-facility','value'), Input('global-year','value')])
+def update_pay_kpis(facs, yr):
+    d = filter_df(facs, yr)
+    tv = d['total'].sum()
+    ep = d['ezpass'].sum()
+    cs = d['cash'].sum()
+    vl = d['violation'].sum()
+    kpis = [
+        ('Total Transactions', f'{tv/1e9:.2f}B', BLUE1),
+        ('EZPass Share', f'{ep/tv*100:.1f}%', BLUE2),
+        ('Cash Share', f'{cs/tv*100:.1f}%', GREEN),
+        ('Violation Share', f'{vl/tv*100:.2f}%', RED),
+    ]
+    return [html.Div([
+        html.P(l, style={'color': TEXT_MUTED, 'fontSize': '11px', 'margin': '0'}),
+        html.P(v, style={'color': c, 'fontSize': '22px', 'fontWeight': '700', 'margin': '4px 0 0'})
+    ], style=KPI_CARD) for l, v, c in kpis]
+
+@app.callback(Output('pay-trend','figure'),
+              [Input('global-facility','value'), Input('global-year','value')])
+def update_pay_trend(facs, yr):
+    d = filter_df(facs, yr)
+    yearly = d.groupby('yr')[['cash','ezpass','violation','total']].sum()
+    yearly['ezpass_pct'] = yearly['ezpass'] / yearly['total'] * 100
+    yearly['cash_pct']   = yearly['cash']   / yearly['total'] * 100
+    yearly['viol_pct']   = yearly['violation'] / yearly['total'] * 100
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=yearly.index, y=yearly['ezpass_pct'],
+                             fill='tozeroy', name='EZPass',
+                             line=dict(color=BLUE1, width=2),
+                             fillcolor='rgba(31,111,235,0.6)'))
+    fig.add_trace(go.Scatter(x=yearly.index,
+                             y=yearly['ezpass_pct'] + yearly['cash_pct'],
+                             fill='tonexty', name='Cash',
+                             line=dict(color=GREEN, width=2),
+                             fillcolor='rgba(63,185,80,0.6)'))
+    fig.add_trace(go.Scatter(x=yearly.index,
+                             y=yearly['ezpass_pct'] + yearly['cash_pct'] + yearly['viol_pct'],
+                             fill='tonexty', name='Violation',
+                             line=dict(color=RED, width=2),
+                             fillcolor='rgba(248,81,73,0.6)'))
+    fig.update_layout(**PLOTLY_TEMPLATE['layout'], yaxis_title='Share (%)')
+    return fig
+
+@app.callback(Output('pay-facility','figure'),
+              [Input('global-facility','value'), Input('global-year','value')])
+def update_pay_facility(facs, yr):
+    d = filter_df(facs, yr)
+    fp = d.groupby('fac_b')[['cash','ezpass','violation','total']].sum()
+    fp['ezpass_pct'] = fp['ezpass'] / fp['total'] * 100
+    fp['cash_pct']   = fp['cash']   / fp['total'] * 100
+    fp['viol_pct']   = fp['violation'] / fp['total'] * 100
+    fp = fp.sort_values('ezpass_pct', ascending=True)
+    fig = go.Figure()
+    fig.add_trace(go.Bar(name='EZPass', y=fp.index, x=fp['ezpass_pct'],
+                         orientation='h', marker_color=BLUE1))
+    fig.add_trace(go.Bar(name='Cash', y=fp.index, x=fp['cash_pct'],
+                         orientation='h', marker_color=GREEN))
+    fig.add_trace(go.Bar(name='Violation', y=fp.index, x=fp['viol_pct'],
+                         orientation='h', marker_color=RED))
+    fig.add_vline(x=80.96, line_dash='dot', line_color=TEXT_MUTED,
+                  annotation_text='Network avg', annotation_font_color=TEXT_MUTED)
+    fig.update_layout(**PLOTLY_TEMPLATE['layout'],
+                      barmode='stack', xaxis_title='Share (%)')
+    return fig
+
+@app.callback(Output('pay-adoption','figure'),
+              [Input('global-facility','value'), Input('global-year','value')])
+def update_pay_adoption(facs, yr):
+    d = filter_df(facs, yr)
+    yearly = d.groupby('yr')[['cash','ezpass','violation','total']].sum()
+    yearly['ezpass_pct'] = yearly['ezpass'] / yearly['total'] * 100
+    yearly['cash_pct']   = yearly['cash']   / yearly['total'] * 100
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=yearly.index, y=yearly['cash_pct'],
+                             name='Cash %', mode='lines+markers',
+                             line=dict(color=GREEN, width=2), marker=dict(size=6)))
+    fig.add_trace(go.Scatter(x=yearly.index, y=yearly['ezpass_pct'],
+                             name='EZPass %', mode='lines+markers',
+                             line=dict(color=BLUE1, width=2, dash='dash'),
+                             marker=dict(size=6), yaxis='y2'))
+    fig.add_vrect(x0=2020, x1=2021, fillcolor='rgba(248,81,73,0.1)',
+                  line_width=0, annotation_text='COVID',
+                  annotation_font_color=RED, annotation_position='top left')
+    fig.update_layout(**PLOTLY_TEMPLATE['layout'],
+                      yaxis=dict(title='Cash Share (%)', color=GREEN,
+                                 gridcolor=BORDER, tickfont=dict(color=GREEN)),
+                      yaxis2=dict(title='EZPass Share (%)', overlaying='y',
+                                  side='right', color=BLUE1,
+                                  tickfont=dict(color=BLUE1)))
+    return fig
+
+@app.callback(Output('pay-volume','figure'),
+              [Input('global-facility','value'), Input('global-year','value')])
+def update_pay_volume(facs, yr):
+    d = filter_df(facs, yr)
+    yearly = d.groupby('yr')[['cash','ezpass','violation']].sum()
+    fig = go.Figure()
+    fig.add_trace(go.Bar(name='EZPass', x=yearly.index.astype(str),
+                         y=yearly['ezpass']/1e6, marker_color=BLUE1))
+    fig.add_trace(go.Bar(name='Cash', x=yearly.index.astype(str),
+                         y=yearly['cash']/1e6, marker_color=GREEN))
+    fig.add_trace(go.Bar(name='Violation', x=yearly.index.astype(str),
+                         y=yearly['violation']/1e6, marker_color=RED))
+    fig.update_layout(**PLOTLY_TEMPLATE['layout'],
+                      barmode='stack', yaxis_title='Transactions (Millions)')
     return fig
 
 if __name__ == '__main__':
