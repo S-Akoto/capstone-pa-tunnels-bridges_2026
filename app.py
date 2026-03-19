@@ -240,16 +240,7 @@ app.layout = html.Div(
                                              html.H3('2026 Monthly Forecast - Top 5 Facilities',
                                                      style={'color': TEXT_PRIMARY, 'fontSize': '14px', 'margin': '0 0 12px'}),
                                              dcc.Graph(id='forecast-monthly', style={'height': '300px'})])]),
-                                     html.Div(style={'display': 'flex', 'gap': '16px'}, children=[
-                                        html.Div(style={**CARD, 'flex': '1'}, children=[
-                                            html.H3('Goal 1 — Top 5 Factors (Random Forest)',
-                                                    style={'color': TEXT_PRIMARY, 'fontSize': '14px', 'margin': '0 0 12px'}),
-                                            dcc.Graph(id='feat-goal1', style={'height': '280px'})]),
-                                        html.Div(style={**CARD, 'flex': '1'}, children=[
-                                            html.H3('Model 1 — H2O GBM Feature Importance',
-                                                    style={'color': TEXT_PRIMARY, 'fontSize': '14px', 'margin': '0 0 12px'}),
-                                            dcc.Graph(id='feat-model1', style={'height': '280px'})])]),
-                                    html.Div(style={**CARD, 'display': 'flex', 'gap': '16px', 'flexWrap': 'wrap'},
+                                     html.Div(style={**CARD, 'display': 'flex', 'gap': '16px', 'flexWrap': 'wrap'},
                                               children=[
                                                   html.Div([html.P('Model', style={'color': TEXT_MUTED, 'fontSize': '11px', 'margin': '0'}),
                                                             html.P('H2O Stacked Ensemble', style={'color': TEXT_PRIMARY, 'fontWeight': '600', 'margin': '4px 0 0'})],
@@ -624,43 +615,6 @@ def update_pay_volume(facs, yr):
                       barmode='stack', yaxis_title='Transactions (Millions)')
     return fig
 
-
-# ── Feature Importance Callbacks ──
-@app.callback(Output('feat-goal1','figure'), Input('main-tabs','value'))
-def update_feat_goal1(_):
-    features = ['Facility Identity','Max Temperature','Min Temperature',
-                'Seasonality / Month','Precipitation']
-    importance = [0.936, 0.235, 0.230, 0.150, 0.143]
-    colors_fi = [BLUE1, BLUE2, BLUE2, BLUE3, GREEN]
-    fig = go.Figure(go.Bar(
-        x=importance, y=features, orientation='h',
-        marker_color=colors_fi,
-        text=[f'{v:.3f}' for v in importance],
-        textposition='outside', textfont=dict(color=TEXT_MUTED, size=10)
-    ))
-    layout2 = dict(PLOTLY_TEMPLATE['layout'])
-    layout2['xaxis'] = dict(range=[0, 1.05], gridcolor=BORDER,
-                            linecolor=BORDER, tickfont=dict(color=TEXT_MUTED))
-    fig.update_layout(**layout2, xaxis_title='Importance Score', showlegend=False)
-    return fig
-
-@app.callback(Output('feat-model1','figure'), Input('main-tabs','value'))
-def update_feat_model1(_):
-    features = ['rolling_7','total_lag365','rolling_30','total_lag7',
-                'total_lag30','fac','yr','snow','day_of_week']
-    pct = [32.6, 19.1, 15.3, 14.7, 8.3, 6.8, 0.8, 0.5, 0.4]
-    colors_m = [BLUE1 if p > 20 else BLUE2 if p > 10 else BLUE3 for p in pct]
-    fig = go.Figure(go.Bar(
-        x=pct, y=features, orientation='h',
-        marker_color=colors_m,
-        text=[f'{p:.1f}%' for p in pct],
-        textposition='outside', textfont=dict(color=TEXT_MUTED, size=10)
-    ))
-    layout3 = dict(PLOTLY_TEMPLATE['layout'])
-    layout3['xaxis'] = dict(range=[0, 40], gridcolor=BORDER,
-                            linecolor=BORDER, tickfont=dict(color=TEXT_MUTED))
-    fig.update_layout(**layout3, xaxis_title='Percentage Importance (%)', showlegend=False)
-    return fig
 
 if __name__ == '__main__':
     app.run(debug=True, port=8050)
